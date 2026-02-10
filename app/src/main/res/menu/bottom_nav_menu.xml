@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/nav_crash"
+        android:title="Crash Alert"
+        android:icon="@android:drawable/ic_dialog_alert"/>
+
+    <item
+        android:id="@+id/nav_navigation"
+        android:title="Navigation"
+        android:icon="@android:drawable/ic_dialog_map"/>
+
+    <item
+        android:id="@+id/nav_contacts"
+        android:title="Contacts"
+        android:icon="@android:drawable/ic_menu_call" />
+
+
+    <item
+        android:id="@+id/nav_settings"
+        android:title="Settings"
+        android:icon="@android:drawable/ic_menu_preferences"/>
+
+</menu>

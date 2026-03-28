@@ -1,9 +1,12 @@
 package com.example.helmetcompanion
 
 import android.app.Dialog
+import android.content.DialogInterface
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.LayoutInflater
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.activityViewModels
@@ -55,7 +58,19 @@ class ProfileSetupDialogFragment : DialogFragment() {
             .setTitle(getString(R.string.settings_complete_profile))
             .setMessage(getString(R.string.settings_complete_profile_message))
             .setView(binding.root)
-            .create()
+            .create().apply {
+                setCanceledOnTouchOutside(false)
+                setOnKeyListener { _: DialogInterface, keyCode: Int, event: KeyEvent ->
+                    if (keyCode == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) {
+                        if (isCurrentFormComplete() || (viewModel.profile.value?.isComplete() == true)) {
+                            dismiss()
+                        }
+                        true
+                    } else {
+                        false
+                    }
+                }
+            }
     }
 
     private fun saveProfile() {
@@ -77,9 +92,33 @@ class ProfileSetupDialogFragment : DialogFragment() {
             binding.editFullName.error = "Fill all rider and vehicle fields"
             return
         }
+        binding.btnSaveProfile.isEnabled = false
         viewModel.saveProfile(profile) { success ->
-            if (success) dismissAllowingStateLoss()
+            if (isAdded && !success) {
+                Toast.makeText(
+                    requireContext(),
+                    "Profile saved locally. Cloud sync can retry later.",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            if (isAdded) {
+                dismissAllowingStateLoss()
+            }
         }
+    }
+
+    private fun isCurrentFormComplete(): Boolean {
+        return RiderProfile(
+            fullName = binding.editFullName.text?.toString().orEmpty().trim(),
+            phoneNumber = binding.editPhone.text?.toString().orEmpty().trim(),
+            city = binding.editCity.text?.toString().orEmpty().trim(),
+            dateOfBirth = binding.editDob.text?.toString().orEmpty().trim(),
+            address = binding.editAddress.text?.toString().orEmpty().trim(),
+            bloodGroup = binding.editBloodGroup.text?.toString().orEmpty().trim(),
+            vehicleType = binding.editVehicleType.text?.toString().orEmpty().trim(),
+            vehicleModel = binding.editVehicleModel.text?.toString().orEmpty().trim(),
+            vehicleRegistration = binding.editVehicleRegistration.text?.toString().orEmpty().trim()
+        ).isComplete()
     }
 
     override fun onDestroyView() {

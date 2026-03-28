@@ -1,180 +1,101 @@
 package com.example.helmetcompanion
 
-import android.Manifest
-import android.content.pm.PackageManager
-import android.graphics.Color
 import android.os.Bundle
-import android.os.CountDownTimer
-import android.telephony.SmsManager
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.TextView
-import androidx.core.content.ContextCompat
+import android.widget.Toast
 import androidx.fragment.app.Fragment
-import com.google.android.gms.location.FusedLocationProviderClient
-import com.google.android.gms.location.LocationServices
+import androidx.fragment.app.activityViewModels
+import com.example.helmetcompanion.databinding.FragmentCrashAlertBinding
 
 class CrashAlertFragment : Fragment() {
 
-    private lateinit var statusText: TextView
-    private lateinit var countdownText: TextView
-    private lateinit var btnCancel: Button
-    private lateinit var btnSendSOS: Button
-    private lateinit var btnSimulateCrash: Button
+    private var _binding: FragmentCrashAlertBinding? = null
+    private val binding get() = _binding!!
 
-    private lateinit var locationClient: FusedLocationProviderClient
-    private var timer: CountDownTimer? = null
-    private var crashActive = false
+    private val viewModel: MainViewModel by activityViewModels {
+        MainViewModelFactory(requireActivity().application)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
-
-        val view = inflater.inflate(R.layout.fragment_crash_alert, container, false)
-
-        locationClient = LocationServices.getFusedLocationProviderClient(requireContext())
-
-        statusText = view.findViewById(R.id.statusText)
-        countdownText = view.findViewById(R.id.countdownText)
-        btnCancel = view.findViewById(R.id.btnCancel)
-        btnSendSOS = view.findViewById(R.id.btnSendSOS)
-        btnSimulateCrash = view.findViewById(R.id.btnSimulateCrash)
-
-        btnCancel.setOnClickListener { cancelAlert() }
-        btnSendSOS.setOnClickListener { sendSOS() }
-        btnSimulateCrash.setOnClickListener { triggerCrash() }
-
-        resetUI()
-        return view
+        _binding = FragmentCrashAlertBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
-    fun triggerCrash() {
-        if (crashActive) return
-        crashActive = true
-        onCrashDetected()
-    }
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
-    private fun onCrashDetected() {
-        statusText.text = "⚠️ CRASH DETECTED!"
-        statusText.setTextColor(Color.RED)
-        btnCancel.visibility = View.VISIBLE
-        btnSendSOS.visibility = View.VISIBLE
-        startCountdown()
-    }
-
-    private fun startCountdown() {
-        timer = object : CountDownTimer(10_000, 1_000) {
-            override fun onTick(millisUntilFinished: Long) {
-                countdownText.text = "Sending SOS in ${millisUntilFinished / 1000}s"
-            }
-            override fun onFinish() {
-                sendSOS()
-            }
-        }.start()
-    }
-
-    private fun cancelAlert() {
-        timer?.cancel()
-        crashActive = false
-        resetUI()
-    }
-
-    private fun getEmergencyContacts(): List<String> {
-        val prefs = requireContext()
-            .getSharedPreferences("sos_prefs", android.content.Context.MODE_PRIVATE)
-
-        val saved = prefs.getString("contacts", "")
-        return if (saved.isNullOrEmpty()) emptyList() else saved.split(",")
-    }
-
-    private fun sendSOS() {
-        timer?.cancel()
-        crashActive = false
-
-        val phoneNumbers = getEmergencyContacts()
-        if (phoneNumbers.isEmpty()) {
-            countdownText.text = "No emergency contacts set"
-            return
+        binding.btnSimulateCrash.setOnClickListener {
+            viewModel.handleHelmetEvent(HelmetEvent(HelmetEventType.CRASH, "CRASH"))
         }
-
-        val smsManager = android.telephony.SmsManager.getDefault()
-
-        // 1️⃣ SEND SOS IMMEDIATELY (NO GPS DEPENDENCY)
-        val baseMessage = """
-        🚨 EMERGENCY ALERT 🚨
-        Crash detected.
-        Help needed immediately.
-    """.trimIndent()
-
-        for (number in phoneNumbers) {
-            smsManager.sendTextMessage(number, null, baseMessage, null, null)
-        }
-
-        statusText.text = "🚨 SOS SENT"
-        statusText.setTextColor(Color.RED)
-        countdownText.text = "Trying to get location..."
-
-        // 2️⃣ TRY TO FETCH LOCATION (OPTIONAL)
-        val hasPermission =
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                requireContext(),
-                android.Manifest.permission.ACCESS_FINE_LOCATION
-            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-        if (!hasPermission) {
-            countdownText.text = "Location permission not granted"
-            return
-        }
-
-        locationClient.lastLocation
-            .addOnSuccessListener { location ->
-                if (location != null) {
-                    val locationMessage =
-                        "📍 Location:\nhttps://maps.google.com/?q=${location.latitude},${location.longitude}"
-
-                    for (number in phoneNumbers) {
-                        smsManager.sendTextMessage(number, null, locationMessage, null, null)
-                    }
-
-                    countdownText.text = "Location sent"
-                } else {
-                    countdownText.text = "Location unavailable"
+        binding.btnReconnectHelmet.setOnClickListener { viewModel.connectHelmet() }
+        binding.btnCancel.setOnClickListener { viewModel.cancelCrashAlert() }
+        binding.btnSendSOS.setOnClickListener {
+            viewModel.sendSos { _, message ->
+                if (isAdded) {
+                    Toast.makeText(requireContext(), message, Toast.LENGTH_SHORT).show()
                 }
             }
-            .addOnFailureListener {
-                countdownText.text = "Location failed"
-            }
-
-        btnCancel.visibility = View.GONE
-        btnSendSOS.visibility = View.GONE
-    }
-
-
-
-    private fun sendSms(numbers: List<String>, message: String) {
-        val smsManager = SmsManager.getDefault()
-        numbers.forEach {
-            smsManager.sendTextMessage(it, null, message, null, null)
         }
 
-        statusText.text = "🚨 SOS SENT"
-        statusText.setTextColor(Color.RED)
-        countdownText.text = "Emergency contacts notified"
-        btnCancel.visibility = View.GONE
-        btnSendSOS.visibility = View.GONE
+        viewModel.crashAlertState.observe(viewLifecycleOwner) { state ->
+            binding.statusText.text = state.message
+            binding.countdownText.text = when (state.phase) {
+                CrashAlertPhase.COUNTDOWN -> "Automatic SOS in ${state.secondsRemaining}s"
+                else -> state.details
+            }
+            binding.alertMessageText.text = state.details
+            binding.btnCancel.isEnabled = state.phase == CrashAlertPhase.COUNTDOWN ||
+                state.phase == CrashAlertPhase.CRASH_DETECTED
+            binding.btnSendSOS.isEnabled = state.phase != CrashAlertPhase.SOS_SENDING
+        }
+
+        viewModel.bluetoothState.observe(viewLifecycleOwner) { state ->
+            binding.chipHelmetStatus.text = when (state.status) {
+                BluetoothConnectionStatus.CONNECTED -> "${state.deviceName} connected"
+                BluetoothConnectionStatus.CONNECTING -> "Connecting to ${state.deviceName}..."
+                BluetoothConnectionStatus.PERMISSION_REQUIRED -> "Bluetooth permission"
+                BluetoothConnectionStatus.DEVICE_NOT_FOUND -> "${state.deviceName} not paired"
+                BluetoothConnectionStatus.ERROR -> "Connection issue"
+                BluetoothConnectionStatus.DISCONNECTED -> "Helmet offline"
+            }
+            binding.btnReconnectHelmet.text = when (state.status) {
+                BluetoothConnectionStatus.CONNECTED -> "Helmet Connected"
+                BluetoothConnectionStatus.CONNECTING -> "Connecting..."
+                else -> getString(R.string.crash_action_reconnect)
+            }
+            binding.btnReconnectHelmet.isEnabled = state.status != BluetoothConnectionStatus.CONNECTING
+            binding.alertMessageText.text = when (state.status) {
+                BluetoothConnectionStatus.DEVICE_NOT_FOUND ->
+                    "Phone cannot find ${state.deviceName}. Pair it in Bluetooth settings first, then tap Connect to Helmet."
+                BluetoothConnectionStatus.PERMISSION_REQUIRED ->
+                    "Bluetooth permission is required before the app can connect to the helmet."
+                else -> binding.alertMessageText.text
+            }
+        }
+
+        viewModel.contacts.observe(viewLifecycleOwner) { contacts ->
+            binding.chipContactsStatus.text = "${contacts.size} emergency contacts"
+        }
+
+        AppContainer.from(requireContext()).locationRepository.getLastKnownLocation { location ->
+            if (isAdded) {
+                binding.locationStatusText.text = if (location != null) {
+                    "Last known location ready for SOS: ${location.latitude}, ${location.longitude}"
+                } else {
+                    "Location is not ready yet. Enable GPS for the best SOS message."
+                }
+            }
+        }
     }
 
-    private fun resetUI() {
-        statusText.text = "Waiting for crash detection..."
-        statusText.setTextColor(Color.GREEN)
-        countdownText.text = ""
-        btnCancel.visibility = View.GONE
-        btnSendSOS.visibility = View.GONE
+    override fun onDestroyView() {
+        super.onDestroyView()
+        _binding = null
     }
 }
-
-

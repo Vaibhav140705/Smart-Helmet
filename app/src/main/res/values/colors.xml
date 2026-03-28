@@ -2,4 +2,17 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="hc_primary">#19323C</color>
+    <color name="hc_primary_container">#284A57</color>
+    <color name="hc_secondary">#F4B860</color>
+    <color name="hc_secondary_container">#FFD8A1</color>
+    <color name="hc_background">#F4F7F8</color>
+    <color name="hc_surface">#FFFFFFFF</color>
+    <color name="hc_surface_variant">#E5ECEF</color>
+    <color name="hc_text_primary">#142228</color>
+    <color name="hc_text_secondary">#5A6D75</color>
+    <color name="hc_success">#1F8A55</color>
+    <color name="hc_warning">#E67E22</color>
+    <color name="hc_error">#D94242</color>
+    <color name="hc_map_route">#0E7C86</color>
 </resources>

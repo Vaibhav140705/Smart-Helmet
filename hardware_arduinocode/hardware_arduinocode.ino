@@ -1,33 +1,33 @@
-#include <AltSoftSerial.h>
+#include <BluetoothSerial.h>
 #include <Wire.h>
 #include <MPU6050.h>
 
-// --------------------
-// Bluetooth (AltSoftSerial)
-// RX = 8, TX = 9 (fixed)
-// --------------------
-AltSoftSerial BT;
 
-// --------------------
+
+BluetoothSerial BT;
+
 // Pin definitions
-// --------------------
-#define TRIG_PIN    10
-#define ECHO_PIN    11
-#define BUZZER_PIN  6   // 🔔 moved from 9 → 6
 
-// --------------------
+#define TRIG_PIN    5
+#define ECHO_PIN    18
+#define BUZZER_PIN  13
+
+unsigned long crashTime = 0;
+bool waitingForCancel = false;
+unsigned long lastSend = 0;
+
 // Parameters
-// --------------------
+
 int beepFreq = 2000;
 float crashThreshold = 2.0;   // ✅ 2.0G crash threshold
 
 MPU6050 mpu;
 bool crashSent = false;       // prevent repeated CRASH spam
 
-// --------------------
+
 void setup() {
   Serial.begin(9600);
-  BT.begin(9600);             // HC-05 default baud
+  BT.begin("ESP_32_Bl");             // HC-05 default baud
   delay(1000);                // let HC-05 stabilize
 
   BT.println("BT Ready");
@@ -40,7 +40,7 @@ void setup() {
   mpu.initialize();
 }
 
-// --------------------
+
 void crashBeep() {
   for (int i = 0; i < 3; i++) {
     tone(BUZZER_PIN, 1200);
@@ -50,12 +50,9 @@ void crashBeep() {
   }
 }
 
-// --------------------
 void loop() {
 
-  // =========================
   // READ ULTRASONIC SENSOR
-  // =========================
   digitalWrite(TRIG_PIN, LOW);
   delayMicroseconds(2);
   digitalWrite(TRIG_PIN, HIGH);
@@ -65,9 +62,9 @@ void loop() {
   long duration = pulseIn(ECHO_PIN, HIGH, 30000);
   float distance = (duration > 0) ? (duration * 0.0343 / 2) : -1;
 
-  // =========================
+ 
   // READ MPU6050
-  // =========================
+
   int16_t ax, ay, az;
   mpu.getAcceleration(&ax, &ay, &az);
 
@@ -81,42 +78,41 @@ void loop() {
     accelZ * accelZ
   );
 
-  // =========================
+ 
   // CRASH DETECTION
-  // =========================
-  if (totalG >= crashThreshold && !crashSent) {
-    crashSent = true;
-
+ 
+  if (totalG >= crashThreshold && !waitingForCancel) {
     BT.println("CRASH");
     crashBeep();
+    crashTime = millis();     // Start the timer
+    waitingForCancel = true;  // Enter "Waiting Mode"
+}
 
-    unsigned long start = millis();
-    bool cancelled = false;
-
-    // ⏱ 10 second cancel window
-    while (millis() - start < 10000) {
-      if (BT.available()) {
+// 2. THE 10-SECOND WAIT LOGIC (Non-blocking)
+if (waitingForCancel) {
+    // Check for Bluetooth Cancel Message
+    if (BT.available()) {
         String msg = BT.readStringUntil('\n');
         msg.trim();
-
         if (msg == "CANCEL") {
-          cancelled = true;
-          BT.println("CANCELLED");
-          break;
+            BT.println("CANCELLED");
+            waitingForCancel = false; // Reset system for next crash
         }
-      }
     }
 
-    if (!cancelled) {
-      BT.println("SOS");
+    // Check if 10 seconds have passed
+    if (waitingForCancel && (millis() - crashTime > 10000)) {
+        BT.println("SOS");
+        waitingForCancel = false; // Reset system after sending SOS
     }
+    
+    // NOTE: Because there is no "return" or "while" here, 
+    // the code continues below to the proximity beeping logic!
+}
 
-    return;   // stop rest of loop after crash
-  }
 
-  // =========================
   // REVERSE SENSOR LOGIC
-  // =========================
+
   if (distance < 0 || distance > 40) {
     noTone(BUZZER_PIN);
   }
@@ -142,9 +138,9 @@ void loop() {
     tone(BUZZER_PIN, beepFreq);  // continuous
   }
 
-  // =========================
+
   // HEARTBEAT (every 2 sec)
-  // =========================
+
   static unsigned long lastSend = 0;
   if (millis() - lastSend >= 2000) {
     BT.println("OK");

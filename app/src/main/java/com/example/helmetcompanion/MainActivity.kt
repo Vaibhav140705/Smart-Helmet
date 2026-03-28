@@ -1,69 +1,184 @@
 package com.example.helmetcompanion
 
-import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import com.google.android.material.bottomnavigation.BottomNavigationView
+import android.Manifest
 import android.content.pm.PackageManager
-
+import android.os.Build
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
+import com.example.helmetcompanion.databinding.ActivityMainBinding
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.GoogleAuthProvider
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var bluetoothManager: BluetoothManager
-    private lateinit var crashFragment: CrashAlertFragment
+    private lateinit var binding: ActivityMainBinding
+    private lateinit var googleSignInClient: GoogleSignInClient
+    private val viewModel: MainViewModel by viewModels { MainViewModelFactory(application) }
 
-    private val SMS_PERMISSION_CODE = 101
-    private val locationPermissionCode = 102
+    private val crashFragment = CrashAlertFragment()
+    private val navigationFragment = NavigationFragment()
+    private val contactsFragment = EmergencyContactsFragment()
+    private val settingsFragment = SettingsFragment()
 
+    private val permissionsLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+            viewModel.connectHelmet()
+        }
 
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
-
-        requestSmsPermission()
-        requestLocationPermission()
-
-
-        crashFragment = CrashAlertFragment()
-        loadFragment(crashFragment)
-
-        bluetoothManager = BluetoothManager(this) { message ->
-            if (message.contains("CRASH"))
-                {
-                runOnUiThread {
-                    crashFragment.triggerCrash()
+    private val signInLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+            runCatching {
+                val account = task.result
+                val idToken = account.idToken
+                if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank() || idToken.isNullOrBlank()) {
+                    Toast.makeText(
+                        this,
+                        "Google sign-in finished, but Firebase sync needs GOOGLE_WEB_CLIENT_ID in local.properties.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    maybeShowProfileSetup(force = true)
+                } else {
+                    val credential = GoogleAuthProvider.getCredential(idToken, null)
+                    FirebaseAuth.getInstance().signInWithCredential(credential)
+                        .addOnSuccessListener {
+                            viewModel.refreshCloudData()
+                            maybeShowProfileSetup(force = viewModel.onboardingRequired.value == true)
+                        }
+                        .addOnFailureListener {
+                            Toast.makeText(this, "Google sign-in failed", Toast.LENGTH_SHORT).show()
+                            maybeShowProfileSetup(force = true)
+                        }
                 }
+            }.onFailure {
+                Toast.makeText(this, "Google sign-in cancelled", Toast.LENGTH_SHORT).show()
+                maybeShowProfileSetup(force = true)
             }
         }
 
-        // 🔵 CHANGE THIS to your HC-05 Bluetooth name
-        bluetoothManager.connect("HC-05")
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        val bottomNav = findViewById<BottomNavigationView>(R.id.bottom_navigation)
-        bottomNav.setOnItemSelectedListener {
+        googleSignInClient = GoogleSignIn.getClient(
+            this,
+            GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestEmail()
+                .requestIdToken(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                .build()
+        )
+
+        if (savedInstanceState == null) {
+            loadFragment(crashFragment)
+        }
+
+        binding.bottomNavigation.setOnItemSelectedListener {
             when (it.itemId) {
                 R.id.nav_crash -> loadFragment(crashFragment)
-//                R.id.nav_navigation -> loadFragment(
-//                    PlaceholderFragment("Navigation coming soon")
-//                )
-
-                R.id.nav_contacts -> {
-                    loadFragment(EmergencyContactsFragment())
-                }
-
-                R.id.nav_settings -> loadFragment(
-                    PlaceholderFragment("Settings coming soon")
-                )
-
-                R.id.nav_navigation -> {
-                    loadFragment(NavigationFragment())
-                    true
-                }
-
-
+                R.id.nav_navigation -> loadFragment(navigationFragment)
+                R.id.nav_contacts -> loadFragment(contactsFragment)
+                R.id.nav_settings -> loadFragment(settingsFragment)
             }
             true
+        }
+
+        observeSharedState()
+        requestCorePermissions()
+        ensureSignedIn()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        viewModel.connectHelmet()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        if (isFinishing) {
+            viewModel.disconnectHelmet()
+        }
+    }
+
+    fun startGoogleSignIn() {
+        signInLauncher.launch(googleSignInClient.signInIntent)
+    }
+
+    private fun observeSharedState() {
+        viewModel.helmetEvent.observe(this) { event ->
+            viewModel.handleHelmetEvent(event)
+            if (event != null) {
+                viewModel.consumeHelmetEvent()
+            }
+        }
+
+        viewModel.crashAlertState.observe(this) { state ->
+            val shouldShowDialog = state.phase == CrashAlertPhase.CRASH_DETECTED ||
+                state.phase == CrashAlertPhase.COUNTDOWN ||
+                state.phase == CrashAlertPhase.SOS_SENDING
+            val existing = supportFragmentManager.findFragmentByTag(CrashCountdownDialogFragment.TAG)
+            if (shouldShowDialog && existing == null) {
+                CrashCountdownDialogFragment().show(
+                    supportFragmentManager,
+                    CrashCountdownDialogFragment.TAG
+                )
+            } else if (!shouldShowDialog && existing is CrashCountdownDialogFragment) {
+                existing.dismissAllowingStateLoss()
+            }
+        }
+
+        viewModel.onboardingRequired.observe(this) { required ->
+            if (required == true) {
+                maybeShowProfileSetup(force = true)
+            }
+        }
+    }
+
+    private fun ensureSignedIn() {
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            startGoogleSignIn()
+        } else {
+            viewModel.refreshCloudData()
+            maybeShowProfileSetup(force = viewModel.onboardingRequired.value == true)
+        }
+    }
+
+    private fun maybeShowProfileSetup(force: Boolean) {
+        if (!force) return
+        val existing = supportFragmentManager.findFragmentByTag(ProfileSetupDialogFragment.TAG)
+        if (existing == null) {
+            ProfileSetupDialogFragment().show(
+                supportFragmentManager,
+                ProfileSetupDialogFragment.TAG
+            )
+        }
+    }
+
+    private fun requestCorePermissions() {
+        val permissions = mutableListOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.SEND_SMS,
+            Manifest.permission.READ_CONTACTS,
+            Manifest.permission.BLUETOOTH_CONNECT,
+            Manifest.permission.BLUETOOTH_SCAN
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissions += Manifest.permission.POST_NOTIFICATIONS
+        }
+
+        val missing = permissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isNotEmpty()) {
+            permissionsLauncher.launch(missing.toTypedArray())
         }
     }
 
@@ -72,30 +187,4 @@ class MainActivity : AppCompatActivity() {
             .replace(R.id.fragment_container, fragment)
             .commit()
     }
-
-    private fun requestSmsPermission() {
-        if (checkSelfPermission(android.Manifest.permission.SEND_SMS)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(
-                arrayOf(android.Manifest.permission.SEND_SMS),
-                SMS_PERMISSION_CODE
-            )
-        }
-    }
-
-    private fun requestLocationPermission() {
-        if (checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermissions(
-                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION),
-                locationPermissionCode
-            )
-        }
-    }
-
-
 }
-
-

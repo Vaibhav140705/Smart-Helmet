@@ -1,8 +1,20 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
     <style name="Base.Theme.HelmetCompanion" parent="Theme.Material3.DayNight.NoActionBar">
-        <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+        <item name="colorPrimary">@color/hc_primary</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">@color/hc_primary_container</item>
+        <item name="colorOnPrimaryContainer">@color/white</item>
+        <item name="colorSecondary">@color/hc_secondary</item>
+        <item name="colorOnSecondary">@color/hc_text_primary</item>
+        <item name="colorSecondaryContainer">@color/hc_secondary_container</item>
+        <item name="colorSurface">@color/hc_surface</item>
+        <item name="colorSurfaceVariant">@color/hc_surface_variant</item>
+        <item name="android:colorBackground">@color/hc_background</item>
+        <item name="android:windowBackground">@color/hc_background</item>
+        <item name="colorError">@color/hc_error</item>
+        <item name="android:navigationBarColor">@color/hc_surface</item>
+        <item name="android:statusBarColor">@color/hc_background</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
 
     <style name="Theme.HelmetCompanion" parent="Base.Theme.HelmetCompanion" />

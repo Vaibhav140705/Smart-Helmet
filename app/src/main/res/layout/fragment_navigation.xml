@@ -1,194 +1,467 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#F2F7F7"> <com.google.android.material.card.MaterialCardView
+    android:id="@+id/cardNavigationControl"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="16dp"
+    android:layout_marginTop="16dp"
+    app:cardBackgroundColor="@color/white"
+    app:cardCornerRadius="16dp">
 
-    <androidx.fragment.app.FragmentContainerView
-        android:id="@+id/mapFragment"
-        android:name="com.google.android.gms.maps.SupportMapFragment"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent" />
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/panelRoutePlanner"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="top"
-        android:layout_marginHorizontal="8dp"
-        android:layout_marginTop="14dp"
-        app:cardBackgroundColor="@color/hc_primary"
-        app:cardCornerRadius="28dp">
+        android:orientation="vertical"
+        android:paddingTop="12dp">
 
-        <LinearLayout
-            android:layout_width="match_parent"
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="18dp">
+            android:layout_marginStart="16dp"
+            android:text="Navigation Control"
+            android:textColor="@color/black"
+            android:textSize="18sp"
+            android:textStyle="bold" />
 
-            <TextView
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tabLayoutMain"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_arrow_badge"
+            app:tabBackground="@color/hc_primary"
+            app:tabIndicatorColor="@android:color/transparent"
+            app:tabSelectedTextColor="@color/white"
+            app:tabTextColor="@color/hc_secondary_container">
+
+            <com.google.android.material.tabs.TabItem
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="cursive"
-                android:text="Route Quality Planner"
-                android:textColor="@color/white"
-                android:textSize="22sp"
-                android:textStyle="bold" />
+                android:text="Map View" />
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                app:boxBackgroundColor="@color/hc_primary_container"
-                app:boxCornerRadiusBottomEnd="18dp"
-                app:boxCornerRadiusBottomStart="18dp"
-                app:boxCornerRadiusTopEnd="18dp"
-                app:boxCornerRadiusTopStart="18dp"
-                app:boxStrokeColor="@color/hc_secondary_container">
+                android:text="Head Arrows View" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editSource"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:enabled="false"
-                    android:textColor="@color/white"
-                    android:textColorHint="@color/hc_secondary_container" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
+            <com.google.android.material.tabs.TabItem
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:hint="Destination (address or lat,lng)"
-                app:boxBackgroundColor="@color/hc_primary_container"
-                app:boxCornerRadiusBottomEnd="18dp"
-                app:boxCornerRadiusBottomStart="18dp"
-                app:boxCornerRadiusTopEnd="18dp"
-                app:boxCornerRadiusTopStart="18dp"
-                app:boxStrokeColor="@color/hc_secondary_container"
-                app:hintTextColor="@color/hc_secondary_container">
+                android:text="Simulation Purpose" />
+        </com.google.android.material.tabs.TabLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editDestination"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:imeOptions="actionDone"
-                    android:textColor="@color/white"
-                    android:textColorHint="@color/hc_secondary_container" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnSuggestRoute"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:backgroundTint="@color/hc_secondary"
-                android:text="Suggest Best Route"
-                android:textColor="@color/hc_text_primary"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/textRouteMessage"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:textColor="@color/hc_secondary_container" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
-
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/panelManeuver"
+    <FrameLayout
+        android:id="@+id/containerMap"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom"
-        android:layout_marginBottom="18dp"
-        android:layout_marginHorizontal="8dp"
-        app:cardBackgroundColor="@color/hc_surface"
-        app:cardCornerRadius="24dp">
+        android:layout_height="match_parent"
+        android:layout_below="@id/cardNavigationControl"
+        android:layout_marginTop="8dp">
 
-        <LinearLayout
+        <androidx.fragment.app.FragmentContainerView
+            android:id="@+id/mapFragment"
+            android:name="com.google.android.gms.maps.SupportMapFragment"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/panelRoutePlanner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:layout_gravity="top"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            app:cardBackgroundColor="@color/hc_primary"
+            app:cardCornerRadius="24dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:padding="18dp">
 
                 <TextView
-                    android:id="@+id/textNextArrow"
-                    android:layout_width="64dp"
-                    android:layout_height="64dp"
-                    android:background="@drawable/bg_arrow_badge"
-                    android:gravity="center"
-                    android:text="S"
-                    android:textColor="@color/hc_primary"
-                    android:textSize="28sp"
+                    android:id="@+id/textPlannerTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="cursive"
+                    android:text="Route Quality Planner"
+                    android:textColor="@color/white"
+                    android:textSize="22sp"
                     android:textStyle="bold" />
 
                 <LinearLayout
-                    android:layout_width="0dp"
+                    android:id="@+id/layoutLocations"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="12dp"
-                    android:layout_weight="1"
                     android:orientation="vertical">
 
-                    <TextView
-                        android:id="@+id/textRouteSummary"
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/layoutSource"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="No active route"
+                        android:layout_marginTop="16dp"
+                        app:boxBackgroundColor="@color/hc_primary_container"
+                        app:boxCornerRadiusBottomEnd="18dp"
+                        app:boxCornerRadiusBottomStart="18dp"
+                        app:boxCornerRadiusTopEnd="18dp"
+                        app:boxCornerRadiusTopStart="18dp"
+                        app:boxStrokeColor="@color/hc_secondary_container">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editSource"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:enabled="false"
+                            android:textColor="@color/white"
+                            android:textColorHint="@color/hc_secondary_container" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/layoutDestination"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:hint="Destination (address or lat,lng)"
+                        app:boxBackgroundColor="@color/hc_primary_container"
+                        app:boxCornerRadiusBottomEnd="18dp"
+                        app:boxCornerRadiusBottomStart="18dp"
+                        app:boxCornerRadiusTopEnd="18dp"
+                        app:boxCornerRadiusTopStart="18dp"
+                        app:boxStrokeColor="@color/hc_secondary_container"
+                        app:hintTextColor="@color/hc_secondary_container">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/editDestination"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:imeOptions="actionSearch"
+                            android:inputType="text"
+                            android:textColor="@color/white"
+                            android:textColorHint="@color/hc_secondary_container" />
+                    </com.google.android.material.textfield.TextInputLayout>
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/layoutPlannerControls"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginTop="16dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnSuggestRoute"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:backgroundTint="@color/hc_secondary"
+                        android:text="Suggest Best Route"
                         android:textColor="@color/hc_text_primary"
                         android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/textNextInstruction"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Enter a destination to generate turn output."
-                        android:textColor="@color/hc_text_secondary" />
-
-                    <TextView
-                        android:id="@+id/textBluetoothCue"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="ESP32 output: standby"
-                        android:textColor="@color/hc_text_secondary" />
                 </LinearLayout>
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnClearRoute"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    android:id="@+id/btnStartRoute"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:backgroundTint="@color/hc_primary_container"
+                    android:text="Start Route"
+                    android:textColor="@color/white"
+                    android:textStyle="bold"
+                    android:visibility="gone" />
+
+                <LinearLayout
+                    android:id="@+id/layoutActiveNavControls"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnEndNavigation"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:backgroundTint="@android:color/holo_red_dark"
+                        android:text="End Navigation"
+                        android:textColor="@color/white"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/textRouteMessage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="Search a destination to start turn-by-turn guidance."
+                    android:textColor="@color/white" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/panelManeuver"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom"
+            android:layout_marginBottom="18dp"
+            android:layout_marginHorizontal="8dp"
+            android:visibility="gone"
+            app:cardBackgroundColor="@color/hc_surface"
+            app:cardCornerRadius="24dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/textNextArrow"
+                        android:layout_width="64dp"
+                        android:layout_height="64dp"
+                        android:background="@drawable/bg_arrow_badge"
+                        android:gravity="center"
+                        android:text="S"
+                        android:textColor="@color/hc_primary"
+                        android:textSize="28sp"
+                        android:textStyle="bold" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="12dp"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/textRouteSummary"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="No active route"
+                            android:textColor="@color/hc_text_primary"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/textNextInstruction"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="Enter a destination to generate turn output."
+                            android:textColor="@color/hc_text_secondary" />
+
+                        <TextView
+                            android:id="@+id/textBluetoothCue"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:text="ESP32 output: standby"
+                            android:textColor="@color/hc_text_secondary" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/listManeuvers"
+                    android:layout_width="match_parent"
+                    android:layout_height="120dp"
+                    android:layout_marginTop="12dp"
+                    android:clipToPadding="false"
+                    android:paddingBottom="12dp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnMyLocation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="bottom|end"
+            android:layout_marginBottom="184dp"
+            android:layout_marginEnd="20dp"
+            android:contentDescription="Center current location"
+            android:src="@android:drawable/ic_menu_mylocation"
+            app:backgroundTint="@color/hc_primary"
+            app:tint="@color/white" />
+    </FrameLayout>
+
+    <LinearLayout
+        android:id="@+id/containerHeadArrows"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/cardNavigationControl"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            app:cardBackgroundColor="@color/hc_primary"
+            app:cardCornerRadius="24dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/nav_clear_route" />
+                    android:text="Helmet Output"
+                    android:textColor="@color/hc_secondary"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/textGiantArrow"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="S"
+                    android:textColor="@color/white"
+                    android:textSize="80sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/textGiantInstruction"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Waiting for route..."
+                    android:textColor="@color/white" />
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/listManeuvers"
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="24dp"
+            app:strokeColor="@color/hc_secondary_container"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="120dp"
-                android:layout_marginTop="12dp"
-                android:clipToPadding="false"
-                android:paddingBottom="12dp" />
-        </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btnMyLocation"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_marginBottom="184dp"
-        android:layout_marginEnd="20dp"
-        android:contentDescription="Center current location"
-        android:src="@android:drawable/ic_menu_mylocation"
-        app:backgroundTint="@color/hc_primary"
-        app:tint="@color/white" />
+                <TextView
+                    android:id="@+id/textHeadArrowSummary"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="No active route"
+                    android:textColor="@color/black"
+                    android:textStyle="bold" />
 
-</FrameLayout>
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Choose a route in Map View first."
+                    android:textColor="#555555" />
+
+                <TextView
+                    android:id="@+id/textHeadArrowStatus"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="ESP32 output: standby"
+                    android:textColor="#555555" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/containerSimulation"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/cardNavigationControl"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:visibility="gone">
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="24dp"
+            app:strokeColor="@color/hc_secondary_container"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Simulation Controls"
+                    android:textColor="@color/black"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="16dp"
+                    android:text="Use these buttons to send L, R, S, U directly to the ESP32."
+                    android:textColor="#555555" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSimLeft"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Simulate Left Turn"
+                    android:textColor="@color/hc_secondary"
+                    app:strokeColor="@color/hc_secondary_container" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSimRight"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Simulate Right Turn"
+                    android:textColor="@color/hc_secondary"
+                    app:strokeColor="@color/hc_secondary_container" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSimStraight"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:layout_marginBottom="8dp"
+                    android:text="Simulate Straight Direction"
+                    android:textColor="@color/hc_secondary"
+                    app:strokeColor="@color/hc_secondary_container" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSimUturn"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="55dp"
+                    android:text="Simulate U-turn"
+                    android:textColor="@color/hc_secondary"
+                    app:strokeColor="@color/hc_secondary_container" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+</RelativeLayout>

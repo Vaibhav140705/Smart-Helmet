@@ -1,12 +1,11 @@
 package com.example.helmetcompanion
 
-import com.google.android.gms.maps.model.LatLng
 import org.json.JSONObject
+import com.google.android.gms.maps.model.LatLng
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
 import java.util.Locale
 import kotlin.concurrent.thread
 
@@ -18,36 +17,29 @@ class NavigationRepository {
         destinationName: String,
         onResult: (Result<RouteSession>) -> Unit
     ) {
-        val directionsKey = BuildConfig.DIRECTIONS_API_KEY.ifBlank { BuildConfig.MAPS_API_KEY }
-        if (directionsKey.isBlank()) {
-            onResult(Result.failure(IllegalStateException("DIRECTIONS_API_KEY or MAPS_API_KEY is missing from local.properties")))
-            return
-        }
-
         thread {
             try {
                 val url = URL(
-                    "https://maps.googleapis.com/maps/api/directions/json?" +
-                        "origin=${origin.latitude},${origin.longitude}&" +
-                        "destination=${destination.latitude},${destination.longitude}&" +
-                        "mode=driving&alternatives=false&units=metric&key=${URLEncoder.encode(directionsKey, "UTF-8")}"
+                    "https://router.project-osrm.org/route/v1/driving/" +
+                            "${origin.longitude},${origin.latitude};" +
+                            "${destination.longitude},${destination.latitude}" +
+                            "?overview=full&geometries=polyline&steps=true"
                 )
 
                 val connection = url.openConnection() as HttpURLConnection
                 connection.connectTimeout = 15_000
                 connection.readTimeout = 15_000
+                connection.setRequestProperty("User-Agent", "com.example.helmetcompanion")
 
                 val stream = if (connection.responseCode in 200..299) {
                     connection.inputStream
                 } else {
                     connection.errorStream
                 }
-                val response = BufferedReader(InputStreamReader(stream)).use { reader ->
-                    reader.readText()
-                }
+                val response = BufferedReader(InputStreamReader(stream)).use { it.readText() }
 
                 if (connection.responseCode !in 200..299) {
-                    error(parseApiError(response))
+                    error("OSRM request failed with code ${connection.responseCode}")
                 }
                 val routeSession = parseRoute(response, destination, destinationName)
                 onResult(Result.success(routeSession))
@@ -63,39 +55,52 @@ class NavigationRepository {
         destinationName: String
     ): RouteSession {
         val root = JSONObject(response)
-        val status = root.optString("status", "UNKNOWN")
-        if (status != "OK") {
-            val apiMessage = root.optString("error_message")
-            error("Directions API error: $status${if (apiMessage.isNotBlank()) " - $apiMessage" else ""}")
+        val code = root.optString("code", "UNKNOWN")
+        if (code != "Ok") {
+            error("OSRM error: $code - ${root.optString("message")}")
         }
+
         val routes = root.getJSONArray("routes")
-        if (routes.length() == 0) {
-            error("No routes returned from Google Directions API.")
-        }
+        if (routes.length() == 0) error("No routes returned from OSRM.")
+
         val route = routes.getJSONObject(0)
-        val leg = route.getJSONArray("legs").getJSONObject(0)
+        val legs = route.getJSONArray("legs")
+        val leg = legs.getJSONObject(0)
         val steps = leg.getJSONArray("steps")
-        val routePoints = decodePolyline(route.getJSONObject("overview_polyline").getString("points"))
+
+        val routePoints = decodePolyline(route.getString("geometry"))
+
+        val totalDistanceMeters = route.getDouble("distance").toInt()
+        val totalDurationSeconds = route.getDouble("duration").toInt()
+        val totalDistanceText = formatDistance(totalDistanceMeters)
+        val totalDurationText = formatDuration(totalDurationSeconds)
+
         val maneuvers = buildList {
             for (index in 0 until steps.length()) {
                 val step = steps.getJSONObject(index)
-                val instruction = stripHtml(step.optString("html_instructions"))
-                val normalized = normalizeManeuver(step.optString("maneuver"), instruction)
-                if (normalized == ManeuverType.UNKNOWN) {
-                    continue
-                }
-                val startLocation = step.getJSONObject("start_location")
+                val maneuver = step.getJSONObject("maneuver")
+                val type = maneuver.optString("type", "")
+                val modifier = maneuver.optString("modifier", "")
+                val instruction = buildInstruction(type, modifier)
+                val normalized = normalizeManeuver(type, modifier)
+
+                if (normalized == ManeuverType.UNKNOWN) continue
+
+                val location = maneuver.getJSONArray("location")
+                // OSRM returns coordinates as [longitude, latitude]
+                val triggerPoint = LatLng(
+                    location.getDouble(1),
+                    location.getDouble(0)
+                )
+
                 add(
                     RouteManeuver(
                         id = "maneuver_$index",
-                        instruction = instruction.ifBlank { normalized.name.replace("_", " ").lowercase(Locale.US) },
-                        distanceMeters = step.getJSONObject("distance").optInt("value"),
-                        durationText = step.getJSONObject("duration").optString("text"),
+                        instruction = instruction,
+                        distanceMeters = step.getDouble("distance").toInt(),
+                        durationText = formatDuration(step.getDouble("duration").toInt()),
                         maneuverType = normalized,
-                        triggerPoint = LatLng(
-                            startLocation.getDouble("lat"),
-                            startLocation.getDouble("lng")
-                        )
+                        triggerPoint = triggerPoint
                     )
                 )
             }
@@ -117,42 +122,61 @@ class NavigationRepository {
             destinationLatLng = destinationLatLng,
             routePoints = routePoints,
             maneuvers = maneuvers,
-            totalDistanceText = leg.getJSONObject("distance").optString("text"),
-            totalDurationText = leg.getJSONObject("duration").optString("text")
+            totalDistanceText = totalDistanceText,
+            totalDurationText = totalDurationText
         )
     }
 
-    private fun normalizeManeuver(maneuver: String?, instruction: String): ManeuverType {
-        val raw = (maneuver ?: "").lowercase(Locale.US)
-        val normalizedInstruction = instruction.lowercase(Locale.US)
+    private fun buildInstruction(type: String, modifier: String): String {
+        val mod = modifier.replace("-", " ")
+        return when (type) {
+            "depart" -> "Head ${mod.ifBlank { "forward" }}"
+            "turn" -> "Turn $mod".trim()
+            "continue" -> "Continue ${mod.ifBlank { "straight" }}"
+            "merge" -> "Merge ${mod.ifBlank { "" }}".trim()
+            "on ramp" -> "Take the ramp ${mod.ifBlank { "" }}".trim()
+            "off ramp" -> "Take the exit ${mod.ifBlank { "" }}".trim()
+            "fork" -> "Keep ${mod.ifBlank { "" }} at the fork".trim()
+            "end of road" -> "Turn $mod at the end of the road".trim()
+            "roundabout", "rotary" -> "Enter the roundabout"
+            "exit roundabout", "exit rotary" -> "Exit the roundabout"
+            "arrive" -> "Arrive at destination"
+            else -> "$type $mod".trim().replaceFirstChar { it.uppercase() }
+        }
+    }
+
+    private fun normalizeManeuver(type: String, modifier: String): ManeuverType {
+        val t = type.lowercase(Locale.US)
+        val m = modifier.lowercase(Locale.US)
         return when {
-            "uturn" in raw || "u-turn" in raw || "u turn" in normalizedInstruction -> ManeuverType.UTURN
-            "turn-slight-left" in raw || "keep-left" in raw || "slight left" in normalizedInstruction -> ManeuverType.SLIGHT_LEFT
-            "turn-slight-right" in raw || "keep-right" in raw || "slight right" in normalizedInstruction -> ManeuverType.SLIGHT_RIGHT
-            "turn-left" in raw || normalizedInstruction.contains("left") -> ManeuverType.LEFT
-            "turn-right" in raw || normalizedInstruction.contains("right") -> ManeuverType.RIGHT
-            "straight" in raw || normalizedInstruction.contains("straight") || normalizedInstruction.contains("continue") -> ManeuverType.STRAIGHT
-            normalizedInstruction.contains("destination") -> ManeuverType.ARRIVE
+            "arrive" in t -> ManeuverType.ARRIVE
+            "uturn" in m || "u-turn" in m -> ManeuverType.UTURN
+            "slight left" in m || "sharp left" in m -> ManeuverType.SLIGHT_LEFT
+            "slight right" in m || "sharp right" in m -> ManeuverType.SLIGHT_RIGHT
+            "left" in m -> ManeuverType.LEFT
+            "right" in m -> ManeuverType.RIGHT
+            "straight" in m || "continue" in t || "depart" in t -> ManeuverType.STRAIGHT
+            "roundabout" in t || "rotary" in t -> ManeuverType.STRAIGHT
             else -> ManeuverType.UNKNOWN
         }
     }
 
-    private fun stripHtml(rawInstruction: String): String {
-        return rawInstruction
-            .replace(Regex("<[^>]*>"), " ")
-            .replace("&nbsp;", " ")
-            .replace("\\s+".toRegex(), " ")
-            .trim()
+    private fun formatDistance(meters: Int): String {
+        return if (meters >= 1000) {
+            String.format(Locale.US, "%.1f km", meters / 1000.0)
+        } else {
+            "$meters m"
+        }
     }
 
-    private fun parseApiError(response: String): String {
-        return runCatching {
-            val root = JSONObject(response)
-            val status = root.optString("status", "HTTP error")
-            val message = root.optString("error_message")
-            "Directions API error: $status${if (message.isNotBlank()) " - $message" else ""}"
-        }.getOrElse {
-            "Directions API request failed."
+    private fun formatDuration(seconds: Int): String {
+        val minutes = seconds / 60
+        return if (minutes >= 60) {
+            val hours = minutes / 60
+            val mins = minutes % 60
+            "${hours}h ${mins}min"
+        } else {
+            "${minutes} min"
         }
     }
 

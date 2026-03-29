@@ -26,14 +26,14 @@ data class RiderProfile(
 ) {
     fun isComplete(): Boolean {
         return fullName.isNotBlank() &&
-            phoneNumber.isNotBlank() &&
-            city.isNotBlank() &&
-            dateOfBirth.isNotBlank() &&
-            address.isNotBlank() &&
-            bloodGroup.isNotBlank() &&
-            vehicleType.isNotBlank() &&
-            vehicleModel.isNotBlank() &&
-            vehicleRegistration.isNotBlank()
+                phoneNumber.isNotBlank() &&
+                city.isNotBlank() &&
+                dateOfBirth.isNotBlank() &&
+                address.isNotBlank() &&
+                bloodGroup.isNotBlank() &&
+                vehicleType.isNotBlank() &&
+                vehicleModel.isNotBlank() &&
+                vehicleRegistration.isNotBlank()
     }
 }
 

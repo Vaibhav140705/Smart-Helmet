@@ -25,9 +25,14 @@ class ProfileSetupDialogFragment : DialogFragment() {
     }
 
     private val photoPicker =
-        registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             selectedPhotoUri = uri
             if (uri != null) {
+                // Tell Android to keep this permission permanently
+                requireContext().contentResolver.takePersistableUriPermission(
+                    uri,
+                    android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
                 binding.imageRiderPhoto.setImageURI(uri)
             }
         }
@@ -39,7 +44,22 @@ class ProfileSetupDialogFragment : DialogFragment() {
         val existing = viewModel.profile.value ?: RiderProfile()
         selectedPhotoUri = existing.riderPhotoUri?.let(Uri::parse)
         if (selectedPhotoUri != null) {
-            binding.imageRiderPhoto.setImageURI(selectedPhotoUri)
+            try {
+                // FIX: Actually try to open the file to test the permission first
+                val testStream = requireContext().contentResolver.openInputStream(selectedPhotoUri!!)
+                testStream?.close()
+
+                // If it didn't crash above, it's safe to give to the ImageView
+                binding.imageRiderPhoto.setImageURI(selectedPhotoUri)
+            } catch (e: SecurityException) {
+                // Permission denied! It's an old URI.
+                e.printStackTrace()
+                selectedPhotoUri = null
+            } catch (e: Exception) {
+                // File was deleted or moved
+                e.printStackTrace()
+                selectedPhotoUri = null
+            }
         }
         binding.editFullName.setText(existing.fullName)
         binding.editPhone.setText(existing.phoneNumber)
@@ -51,7 +71,30 @@ class ProfileSetupDialogFragment : DialogFragment() {
         binding.editVehicleModel.setText(existing.vehicleModel)
         binding.editVehicleRegistration.setText(existing.vehicleRegistration)
 
-        binding.btnPickPhoto.setOnClickListener { photoPicker.launch("image/*") }
+        // 1. Prevent the user from typing freely into the field
+        binding.editDob.isFocusable = false
+        binding.editDob.isClickable = true
+
+        // 2. Open the Calendar when clicked
+        binding.editDob.setOnClickListener {
+            val datePicker = com.google.android.material.datepicker.MaterialDatePicker.Builder.datePicker()
+                .setTitleText("Select Date of Birth")
+                .setSelection(com.google.android.material.datepicker.MaterialDatePicker.todayInUtcMilliseconds())
+                .build()
+
+            datePicker.addOnPositiveButtonClickListener { selection ->
+                // Convert the selected timestamp into a readable date string
+                val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.getDefault())
+                val formattedDate = sdf.format(java.util.Date(selection))
+                binding.editDob.setText(formattedDate)
+            }
+
+            // childFragmentManager ensures the picker survives dialog lifecycle changes
+            datePicker.show(childFragmentManager, "DOB_PICKER")
+        }
+
+        // FIX 3: Pass the MIME type as an array
+        binding.btnPickPhoto.setOnClickListener { photoPicker.launch(arrayOf("image/*")) }
         binding.btnSaveProfile.setOnClickListener { saveProfile() }
 
         return MaterialAlertDialogBuilder(requireContext())
@@ -74,25 +117,76 @@ class ProfileSetupDialogFragment : DialogFragment() {
     }
 
     private fun saveProfile() {
+        val fullName = binding.editFullName.text?.toString().orEmpty().trim()
+        val phone = binding.editPhone.text?.toString().orEmpty().trim()
+        val city = binding.editCity.text?.toString().orEmpty().trim()
+        val dob = binding.editDob.text?.toString().orEmpty().trim()
+        val address = binding.editAddress.text?.toString().orEmpty().trim()
+        val bloodGroup = binding.editBloodGroup.text?.toString().orEmpty().trim().uppercase()
+        val vehicleType = binding.editVehicleType.text?.toString().orEmpty().trim()
+        val vehicleModel = binding.editVehicleModel.text?.toString().orEmpty().trim()
+        val vehicleReg = binding.editVehicleRegistration.text?.toString().orEmpty().trim().uppercase()
+
+        var isValid = true
+
+        // 1. Regex Validations
+        if (!fullName.matches("^[a-zA-Z\\s]+$".toRegex())) {
+            binding.editFullName.error = "Name must contain only alphabets"
+            isValid = false
+        } else binding.editFullName.error = null
+
+        if (!phone.matches("^[0-9]{10}$".toRegex())) {
+            binding.editPhone.error = "Enter a valid 10-digit phone number"
+            isValid = false
+        } else binding.editPhone.error = null
+
+        if (!bloodGroup.matches("^(A|B|AB|O)[+-]$".toRegex())) {
+            binding.editBloodGroup.error = "Invalid format (e.g., O+, AB-)"
+            isValid = false
+        } else binding.editBloodGroup.error = null
+
+        if (!vehicleReg.matches("^[A-Z0-9]{6,11}$".toRegex())) {
+            binding.editVehicleRegistration.error = "Enter a valid alphanumeric registration"
+            isValid = false
+        } else binding.editVehicleRegistration.error = null
+
+        // 2. Empty Field Validations
+        val requiredFields = listOf(
+            city to binding.editCity,
+            dob to binding.editDob,
+            address to binding.editAddress,
+            vehicleType to binding.editVehicleType,
+            vehicleModel to binding.editVehicleModel
+        )
+
+        for ((text, view) in requiredFields) {
+            if (text.isBlank()) {
+                view.error = "This field cannot be empty"
+                isValid = false
+            } else view.error = null
+        }
+
+        // 3. Stop if anything failed
+        if (!isValid) return
+
+        binding.btnSaveProfile.isEnabled = false
+
+        // 4. Proceed to save
         val current = FirebaseAuth.getInstance().currentUser
         val profile = RiderProfile(
-            fullName = binding.editFullName.text?.toString().orEmpty().trim(),
+            fullName = fullName,
             email = current?.email.orEmpty(),
-            phoneNumber = binding.editPhone.text?.toString().orEmpty().trim(),
-            city = binding.editCity.text?.toString().orEmpty().trim(),
-            dateOfBirth = binding.editDob.text?.toString().orEmpty().trim(),
-            address = binding.editAddress.text?.toString().orEmpty().trim(),
-            bloodGroup = binding.editBloodGroup.text?.toString().orEmpty().trim(),
+            phoneNumber = phone,
+            city = city,
+            dateOfBirth = dob,
+            address = address,
+            bloodGroup = bloodGroup,
             riderPhotoUri = selectedPhotoUri?.toString(),
-            vehicleType = binding.editVehicleType.text?.toString().orEmpty().trim(),
-            vehicleModel = binding.editVehicleModel.text?.toString().orEmpty().trim(),
-            vehicleRegistration = binding.editVehicleRegistration.text?.toString().orEmpty().trim()
+            vehicleType = vehicleType,
+            vehicleModel = vehicleModel,
+            vehicleRegistration = vehicleReg
         )
-        if (!profile.isComplete()) {
-            binding.editFullName.error = "Fill all rider and vehicle fields"
-            return
-        }
-        binding.btnSaveProfile.isEnabled = false
+
         viewModel.saveProfile(profile) { success ->
             if (isAdded && !success) {
                 Toast.makeText(

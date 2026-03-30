@@ -39,11 +39,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val crashAlertState: LiveData<CrashAlertState> = crashAlertMutable
 
     val onboardingRequired = MediatorLiveData<Boolean>().apply {
-        val update: () -> Unit = {
-            value = profile.value?.isComplete() != true
+        addSource(profile) { currentProfile ->
+            // Only evaluate and trigger the dialog AFTER the profile data arrives
+            if (currentProfile != null) {
+                value = !currentProfile.isComplete()
+            }
         }
-        addSource(profile) { update() }
-        update()
     }
 
     fun refreshCloudData() {

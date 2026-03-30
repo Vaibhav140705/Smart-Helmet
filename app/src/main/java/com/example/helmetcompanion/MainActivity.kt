@@ -42,25 +42,24 @@ class MainActivity : AppCompatActivity() {
                 if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isBlank() || idToken.isNullOrBlank()) {
                     Toast.makeText(
                         this,
-                        "Google sign-in finished, but Firebase sync needs GOOGLE_WEB_CLIENT_ID in local.properties.",
+                        "Google sign-in finished, but Firebase sync needs GOOGLE_WEB_CLIENT_ID.",
                         Toast.LENGTH_LONG
                     ).show()
-                    maybeShowProfileSetup(force = true)
+                    // ❌ REMOVED: maybeShowProfileSetup(force = true)
                 } else {
                     val credential = GoogleAuthProvider.getCredential(idToken, null)
                     FirebaseAuth.getInstance().signInWithCredential(credential)
                         .addOnSuccessListener {
                             viewModel.refreshCloudData()
-                            maybeShowProfileSetup(force = viewModel.onboardingRequired.value == true)
                         }
                         .addOnFailureListener {
                             Toast.makeText(this, "Google sign-in failed", Toast.LENGTH_SHORT).show()
-                            maybeShowProfileSetup(force = true)
+                            // ❌ REMOVED: maybeShowProfileSetup(force = true)
                         }
                 }
             }.onFailure {
                 Toast.makeText(this, "Google sign-in cancelled", Toast.LENGTH_SHORT).show()
-                maybeShowProfileSetup(force = true)
+                // ❌ REMOVED: maybeShowProfileSetup(force = true)
             }
         }
 
@@ -69,13 +68,18 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        googleSignInClient = GoogleSignIn.getClient(
-            this,
-            GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                .requestEmail()
-                .requestIdToken(BuildConfig.GOOGLE_WEB_CLIENT_ID)
-                .build()
-        )
+        // FIX: Dynamically build the options to prevent crashing on an empty string
+        val gsoBuilder = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+            .requestEmail()
+
+        // Only request the ID token if the build config string actually contains something
+        if (BuildConfig.GOOGLE_WEB_CLIENT_ID.isNotBlank()) {
+            gsoBuilder.requestIdToken(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+        } else {
+            Toast.makeText(this, "Warning: Web Client ID is missing. Google Sign-In to Firebase will fail.", Toast.LENGTH_LONG).show()
+        }
+
+        googleSignInClient = GoogleSignIn.getClient(this, gsoBuilder.build())
 
         if (savedInstanceState == null) {
             loadFragment(crashFragment)
@@ -136,7 +140,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         viewModel.onboardingRequired.observe(this) { required ->
-            if (required == true) {
+            // FIX: Only show the profile dialog if the user is ACTUALLY signed into Firebase
+            if (required == true && FirebaseAuth.getInstance().currentUser != null) {
                 maybeShowProfileSetup(force = true)
             }
         }
@@ -147,7 +152,6 @@ class MainActivity : AppCompatActivity() {
             startGoogleSignIn()
         } else {
             viewModel.refreshCloudData()
-            maybeShowProfileSetup(force = viewModel.onboardingRequired.value == true)
         }
     }
 
